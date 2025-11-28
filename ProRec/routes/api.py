@@ -557,6 +557,51 @@ def admin_reject_user(user_id):
     })
 
 
+@api_bp.route('/admin/users', methods=['POST'])
+@login_required
+@active_user_required
+@admin_required
+def admin_create_user():
+    """Create a new user."""
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    required_fields = ['username', 'email', 'password', 'first_name', 'last_name']
+    for field in required_fields:
+        if not data.get(field):
+            return jsonify({'error': f'Campo {field} é obrigatório'}), 400
+
+    # Check if username already exists
+    if User.query.filter_by(username=data['username']).first():
+        return jsonify({'error': 'Nome de usuário já existe'}), 400
+
+    # Check if email already exists
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({'error': 'Email já cadastrado'}), 400
+
+    # Create user
+    user = User(
+        username=data['username'],
+        email=data['email'],
+        first_name=data['first_name'],
+        last_name=data['last_name'],
+        tipo=data.get('tipo', TipoUsuario.PRODUCER.value),
+        status=data.get('status', StatusUsuario.ATIVO.value)
+    )
+    user.set_password(data['password'])
+
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Usuário {user.get_full_name()} criado com sucesso!',
+        'user': user.to_dict()
+    }), 201
+
+
 @api_bp.route('/admin/users/<int:user_id>', methods=['PUT'])
 @login_required
 @active_user_required
